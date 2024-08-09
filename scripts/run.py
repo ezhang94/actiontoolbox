@@ -136,11 +136,13 @@ def train(args):
     "lambda_strong": args.module_cfg.lambda_strong,
     "lambda_pred": args.module_cfg.lambda_pred,
     "lambda_recon": args.module_cfg.lambda_recon,
+    "lambda_task": args.module_cfg.lambda_task,
   }
   # ------------------------------------------------
   # Load data loaders
   ind_data = all_datasets[args.data_cfg.test_set](args.data_cfg, **extra_kwargs)
   ind_data.setup()
+
   # ------------------------------------------------
   # Load module
   module_args = args.module_cfg
@@ -158,6 +160,7 @@ def train(args):
     module_args.classifier_cfg.lambda_strong = args.module_cfg.lambda_strong
     module_args.classifier_cfg.lambda_pred = args.module_cfg.lambda_pred
     module_args.classifier_cfg.lambda_recon = args.module_cfg.lambda_recon
+    module_args.classifier_cfg.lambda_task = args.module_cfg.lambda_task
     module_args.classifier_cfg.num_classes = args.data_cfg.num_classes
     module_args.classifier_cfg.input_size = args.data_cfg.input_size
 
@@ -192,6 +195,9 @@ def train(args):
 
   # ------------------------------------------------
   # Evaluate in OOD data as well
+  # Free data from memory
+  # del ind_data
+
   # Load OOD loader
   ood_data_cfg = args.data_cfg
   if ood_data_cfg.get('ood_expt_ids', None):

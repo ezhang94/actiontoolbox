@@ -1,29 +1,37 @@
 Comment: >
-  # Debugging instructions:
-  python run.py --config-name="killifish" trainer_cfg.fast_dev_run=1 data_cfg.num_workers=4
+  Debug:
+  python run.py --config-name="fly_tcn" trainer_cfg.fast_dev_run=1 data_cfg.num_workers=4
 
-project_name: "fly_mingpt_v2"
-experiment_name: "min_gpt_long"
+project_name: "fly_comparison"
+experiment_name: "tcn_multidataset"
 
 common:
   input_type: &input_type "markers"
   sequence_length: &sequence_length 500
-  input_size: &input_size 100
-  num_classes: &num_classes 5
+  input_size: &input_size 16
+  num_classes: &num_classes 7
   lambda_weak: &lambda_weak 0   # hyperparam on classifying weak (heuristic) labels
-  lambda_strong: &lambda_strong 0  # hyperparam on classifying strong (hand) labels
-  lambda_pred: &lambda_pred 1  # hyperparam on one-step-ahead prediction
+  lambda_strong: &lambda_strong 1  # hyperparam on classifying strong (hand) labels
+  lambda_pred: &lambda_pred 0.5  # hyperparam on one-step-ahead prediction
   lambda_recon: &lambda_recon 0 # hyperparam on reconstruction loss
-  lambda_task: &lambda_task 0 # hyperparam on reconstruction loss
+  lambda_task: &lambda_task 0 # hyperparam on task prediction loss
 
 
 data_cfg:
   test_set: "concat_all" # "concat_all" or "base" for many or 1 data loaders
-  data_dir: ${oc.env:LOCAL_PROJECTS_DIR}/segment/action/data/killifish
+  data_dir: ${oc.env:LOCAL_PROJECTS_DIR}/segment/action/data/fly
   expt_ids:
-    - fish0_137_cohort1
+    - 2019_08_07_fly2
+    - 2019_08_08_fly1
+    - 2019_08_20_fly2
+    - 2019_10_10_fly3
+    - 2019_10_14_fly3
   ood_expt_ids:
-    - fish0_137_cohort1
+    - 2019_06_26_fly2
+    - 2019_08_14_fly1
+    - 2019_08_20_fly3
+    - 2019_10_14_fly2
+    - 2019_10_21_fly1
   batch_size: 2
   num_workers: 32
   seed: null
@@ -33,11 +41,11 @@ data_cfg:
   input_size: *input_size  # dimensionality of input type
   sequence_length: *sequence_length
   num_classes: *num_classes
-  normalize_markers: False
-#  lambda_weak: *lambda_weak
-#  lambda_strong: *lambda_strong
-#  lambda_pred: *lambda_pred
-#  lambda_recon: *lambda_recon
+  lambda_weak: *lambda_weak
+  lambda_strong: *lambda_strong
+  lambda_pred: *lambda_pred
+  lambda_recon: *lambda_recon
+  lambda_task: *lambda_task
 
 #  sequence_pad: null # inherited from dataloaderq
 # class_idx: null
@@ -53,8 +61,8 @@ trainer_cfg:
   precision: 32
   accelerator: "auto"
   val_check_interval: 1.0  # set to 1 for early stopping
-  gradient_clip_val: 0.1
-  gradient_clip_algorithm: "norm" #"norm"
+  gradient_clip_val: 0.5
+  gradient_clip_algorithm: "value" #"norm"
 
 
 eval_cfg:
@@ -69,7 +77,7 @@ callbacks:
   lr_monitor: 0
 
 early_stop_cfg:
-  monitor: "epoch/val_mse_pred"# "epoch/val_accuracy"
+  monitor: "epoch/val_accuracy"# "epoch/val_accuracy"
   mode: min  # max
   verbose: true
   min_delta: 0.0
@@ -84,25 +92,21 @@ module_cfg:
   lambda_recon: *lambda_recon
   lambda_task: *lambda_task
   optimizer_cfg:
-    type: "adamw"
-    lr: !!float 1e-5
-    weight_decay: 0.1
-    betas: [0.9, 0.95]
-  classifier: "segmenter"  # model_class
+    type: "adam"
+    lr: 1e-4
+    amsgrad: True
+  classifier: "encoder_decoder"  # model_class
   classifier_cfg:
-    model_class: null
-    backbone : "animalst"
-    n_embd: 768      # hidden units per hidden layer
-    n_hid_layers: 24      # hidden layers in network
-    n_head: 12      # number of attention blocks
-    n_hid_units: 256  # size of encoder output
-
-    embd_pdrop: 0   # embedding dropout
-    resid_pdrop: 0  # residual dropout
-    attn_pdrop: 0  # attention, mlp dropout
-
-    num_animals: 1
-    classifier_type: "multiclass"
+    model_class: "deep"
+    backbone : "dtcn"
+    n_hid_layers: 2      # hidden layers in network
+    n_hid_units: 32      # hidden units per hidden layer
+    n_lags: 4            # half-width of temporal convolution window
+    activation: 'lrelu'  # layer nonlinearity
+    bidirectional: "true"
+    dropout: 0.1
+    classifier_type: "multiclass" # [multiclass, multilabel]
+    variational: false
 
     num_frames: *sequence_length
     input_size: *input_size
